@@ -1,0 +1,19 @@
+{
+    "name": "misakstvanu/laravel-passkeys",
+    "description": "Passkeys implementation for Laravel",
+    "type": "library",
+    "require": {
+        "laravel/framework": "^10.28",
+        "web-auth/webauthn-lib": "^4.7"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.4"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Misakstvanu\\LaravelPasskeys\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}
