@@ -51,11 +51,9 @@ class AuthenticationController extends Controller {
      */
     public function generateOptions(Request $request): array {
         try {
-            $user = User::where('email', $request->input('email'))->whereHas('passkeys')->firstOrFail();
+            $user = config('passkeys.user_model')::where(config('passkeys.username_column'), $request->input(config('passkeys.username_column')))->whereHas('passkeys')->firstOrFail();
         } catch (ModelNotFoundException $e) {
-            throw ValidationException::withMessages([
-                'email' => 'User not found',
-            ]);
+            throw new ModelNotFoundException('User not found', 404, $e);
         }
 
         // User Entity
@@ -95,7 +93,7 @@ class AuthenticationController extends Controller {
         // for the next step. The data will be needed to check the response from the device.
         $request->session()->flash(
             self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY,
-            $serializedOptions
+            json_decode(json_encode($serializedOptions), true)
         );
 
         return $serializedOptions;
@@ -147,7 +145,7 @@ class AuthenticationController extends Controller {
 
         if (!$authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
             throw ValidationException::withMessages([
-                'email' => 'Invalid response type',
+                config('passkeys.username_column') => 'Invalid response type',
             ]);
         }
 
@@ -164,11 +162,12 @@ class AuthenticationController extends Controller {
             ),
             $serverRequest,
             $authenticatorAssertionResponse->userHandle,
+            config('passkeys.relying_party_ids')
         );
 
         // If we've gotten this far, the response is valid!
 
-        $user = User::where('username', $publicKeyCredentialSource->userHandle)->firstOrFail();
+        $user = config('passkeys.user_model')::where(config('passkeys.username_column'), $publicKeyCredentialSource->userHandle)->firstOrFail();
 
         Auth::login($user);
 

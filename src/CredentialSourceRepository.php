@@ -14,12 +14,8 @@ class CredentialSourceRepository implements PublicKeyCredentialSourceRepository 
     /**
      * @throws InvalidDataException
      */
-    public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
-    {
-        $authenticator = Passkey::where(
-            'credential_id',
-            base64_encode($publicKeyCredentialId)
-        )->first();
+    public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource {
+        $authenticator = $this->findOneEntryByCredentialId($publicKeyCredentialId);
 
         if (!$authenticator) {
             return null;
@@ -28,25 +24,39 @@ class CredentialSourceRepository implements PublicKeyCredentialSourceRepository 
         return PublicKeyCredentialSource::createFromArray($authenticator->public_key);
     }
 
-    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
-    {
-        return User::with('passkeys')
-            ->where('id', $publicKeyCredentialUserEntity->getId())
+    protected function findOneEntryByCredentialId(string $publicKeyCredentialId): ?Passkey {
+        return Passkey::where(
+            'credential_id',
+            base64_encode($publicKeyCredentialId)
+        )->first();
+    }
+
+    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array {
+        return config('passkeys.user_model')::with('passkeys')
+            ->where('id', $publicKeyCredentialUserEntity->id)
             ->first()
             ->passkeys
             ->toArray();
     }
 
-    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
-    {
-        $user = User::where(
-            'username',
+    /**
+     * @throws InvalidDataException
+     */
+    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void {
+        $user = config('passkeys.user_model')::where(
+            config('passkeys.username_column'),
             $publicKeyCredentialSource->userHandle
         )->firstOrFail();
 
-        $user->authenticators()->save(new Passkey([
-            'credential_id' => $publicKeyCredentialSource->getPublicKeyCredentialId(),
-            'public_key'    => $publicKeyCredentialSource->jsonSerialize(),
+        if($passkey = $this->findOneEntryByCredentialId($publicKeyCredentialSource->publicKeyCredentialId)){
+            $passkey->update([
+                'public_key' => $publicKeyCredentialSource->jsonSerialize(),
+            ]);
+            return;
+        }
+        $user->passkeys()->save(new Passkey([
+            'credential_id' => $publicKeyCredentialSource->publicKeyCredentialId,
+            'public_key' => $publicKeyCredentialSource->jsonSerialize(),
         ]));
     }
 

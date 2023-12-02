@@ -45,9 +45,9 @@ class RegistrationController extends Controller {
 
         // User Entity
         $userEntity = PublicKeyCredentialUserEntity::create(
-            $request->input('email'),
-            $request->input('email'),
-            $request->input('email'),
+            $request->input(config('passkeys.username_column')),
+            $request->input(config('passkeys.username_column')),
+            $request->input(config('passkeys.username_column')),
             null,
         );
 
@@ -116,6 +116,8 @@ class RegistrationController extends Controller {
      * @throws ValidationException
      */
     public function verify(Request $request, ServerRequestInterface $serverRequest): array {
+        $userData = $request->validate(config('passkeys.registration_user_validation'));
+
         // A repo of our public key credentials
         $pkSourceRepo = new CredentialSourceRepository();
 
@@ -127,7 +129,7 @@ class RegistrationController extends Controller {
             $attestationManager,
             $pkSourceRepo,
             null,
-            ExtensionOutputCheckerHandler::create(),
+            ExtensionOutputCheckerHandler::create()
         );
 
         // A loader that will load the response from the device
@@ -141,7 +143,7 @@ class RegistrationController extends Controller {
 
         if (!$authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
             throw ValidationException::withMessages([
-                'email' => 'Invalid response type',
+                config('passkeys.username_column') => 'Invalid response type',
             ]);
         }
 
@@ -162,13 +164,17 @@ class RegistrationController extends Controller {
         // If we've gotten this far, the response is valid!
 
         // Save the user and the public key credential source to the database
-        $user = User::create([
-            'email' => $publicKeyCredentialSource->userHandle,
-        ]);
+        if(null == $user = Auth::user()) {
+            $user = config('passkeys.user_model')::create(array_merge([
+                config('passkeys.username_column') => $publicKeyCredentialSource->userHandle,
+            ], $userData));
+        } else {
+            $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
+        }
 
         $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
 
-        Auth::login($user);
+        if(!Auth::check()) Auth::login($user);
 
         return [
             'verified' => true,
