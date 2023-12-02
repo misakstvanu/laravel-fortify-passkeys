@@ -18,7 +18,7 @@
     "extra": {
         "laravel": {
             "providers": [
-              "PasskeysServiceProvider"
+              "Misakstvanu\\LaravelPasskeys\\PasskeysServiceProvider"
             ]
         }
     },
