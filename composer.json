@@ -1,6 +1,6 @@
 {
     "name": "misakstvanu/laravel-passkeys",
-    "description": "Passkeys implementation for Laravel",
+    "description": "Passkeys backend implementation for Laravel",
     "type": "library",
     "require": {
         "laravel/framework": "^10.28",
@@ -13,6 +13,13 @@
     "autoload": {
         "psr-4": {
             "Misakstvanu\\LaravelPasskeys\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+              "PasskeysServiceProvider"
+            ]
         }
     },
     "minimum-stability": "stable"
