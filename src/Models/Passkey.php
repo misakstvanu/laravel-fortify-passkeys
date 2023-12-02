@@ -17,7 +17,6 @@ class Passkey extends Model {
     ];
 
     protected $casts = [
-        'credential_id' => 'encrypted',
         'public_key'    => 'encrypted:json',
     ];
 
