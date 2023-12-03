@@ -143,6 +143,9 @@ class AuthenticationController extends Controller {
 
         $authenticatorAssertionResponse = $publicKeyCredential->response;
 
+        if(null === $userHandle = $authenticatorAssertionResponse?->userHandle)
+            $userHandle = $pkSourceRepo->findOneByCredentialId($publicKeyCredential->rawId)->userHandle;
+
         if (!$authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
             throw ValidationException::withMessages([
                 config('passkeys.username_column') => 'Invalid response type',
@@ -161,7 +164,7 @@ class AuthenticationController extends Controller {
                 $request->session()->get(self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY)
             ),
             $serverRequest,
-            $pkSourceRepo->findOneByCredentialId($publicKeyCredential->rawId)->userHandle,
+            $userHandle,
             config('passkeys.relying_party_ids')
         );
 
