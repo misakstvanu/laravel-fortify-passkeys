@@ -161,7 +161,7 @@ class AuthenticationController extends Controller {
                 $request->session()->get(self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY)
             ),
             $serverRequest,
-            $authenticatorAssertionResponse->userHandle,
+            $pkSourceRepo->findOneByCredentialId($publicKeyCredential->rawId)->userHandle,
             config('passkeys.relying_party_ids')
         );
 
