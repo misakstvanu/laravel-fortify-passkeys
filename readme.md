@@ -125,7 +125,6 @@ function login() {
                 // WE ARE LOGGED IN
                 return window.location.reload();
             }
-
             // Something went wrong verifying the authentication.
         })
         .catch((error) => {
