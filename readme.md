@@ -100,7 +100,7 @@ function register() {
         .then((attResp) => api.post('/passkey/register', attResp))
         .then((verificationResponse) => {
             if (verificationResponse.data?.verified) {
-                // WE ARE REGISTERED AND LOGGED IN
+                // WE ARE REGISTERED AND LOGGED IN / PASSKEY WAS ASSOCIATED WITH NEW OR LOGGED IN ACCOUNT
                 return window.location.reload();
             }
             // Something went wrong verifying the registration.
