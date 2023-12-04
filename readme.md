@@ -78,3 +78,55 @@ There are 4 named routes that make everything work:
 `POST 'passkeys.register.start'` - registration route, accepts `email` or other field specified in your config. Credential request options is returned.
 
 `POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes and an user is currently logged in, the passkey will be added to the existing account, if no one is currently logged in, an account will be created from the username/email and any additional data specified in config and sent along with this request. If the passkey registration fails, an exception with additional information is thrown.
+
+## JS Example
+Below is minimal example of how to use this package with js `@simplewebauthn/browser`.
+```javascript
+
+import {browserSupportsWebAuthn, startAuthentication, startRegistration} from "@simplewebauthn/browser";
+//import 'api' object based on axios and configured with our app url
+
+function register() {
+    // Ask for the authentication options
+    api.post('/passkey/register/options', {
+        email: 'your@email.com',
+    })
+        // Prompt the user to create a passkey
+        .then((response) => startRegistration(response.data))
+        // Verify the data with the server
+        .then((attResp) => api.post('/passkey/register', attResp))
+        .then((verificationResponse) => {
+            if (verificationResponse.data?.verified) {
+                // WE ARE REGISTERED AND LOGGED IN
+                return window.location.reload();
+            }
+            // Something went wrong verifying the registration.
+        })
+        .catch((error) => {
+            // Handle error information
+        });
+}
+function login() {
+    // Ask for the authentication options
+    api.post('/passkey/login/options', {
+            email: 'your@email.com',
+        })
+        // Prompt the user to authenticate with their passkey
+        .then((response) => startAuthentication(response.data))
+        // Verify the data with the server
+        .then((attResp) =>
+            api.post('/passkey/login', attResp),
+        )
+        .then((verificationResponse) => {
+            if (verificationResponse.data?.verified) {
+                // WE ARE LOGGED IN
+                return window.location.reload();
+            }
+
+            // 'Something went wrong verifying the authentication.
+        })
+        .catch((error) => {
+            // Handle error information
+        });
+}
+```
