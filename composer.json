@@ -3,6 +3,7 @@
     "description": "Passkeys backend implementation for Laravel",
     "type": "library",
     "require": {
+        "php": "^8.2",
         "laravel/framework": "^10.28",
         "web-auth/webauthn-lib": "^4.7"
     },
