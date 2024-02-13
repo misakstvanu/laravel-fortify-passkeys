@@ -1,11 +1,12 @@
 {
-    "name": "misakstvanu/laravel-passkeys",
-    "description": "Passkeys backend implementation for Laravel",
+    "name": "misakstvanu/laravel-fortify-passkeys",
+    "description": "Passkeys backend implementation for Laravel Fortify",
     "type": "library",
     "require": {
         "php": "^8.2",
         "laravel/framework": "^10.28",
-        "web-auth/webauthn-lib": "^4.7"
+        "web-auth/webauthn-lib": "^4.7",
+        "laravel/fortify": "^1.20"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.4"
@@ -13,13 +14,13 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Misakstvanu\\LaravelPasskeys\\": "src/"
+            "Misakstvanu\\LaravelFortifyPasskeys\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-              "Misakstvanu\\LaravelPasskeys\\PasskeysServiceProvider"
+              "Misakstvanu\\LaravelFortifyPasskeys\\PasskeysServiceProvider"
             ]
         }
     },

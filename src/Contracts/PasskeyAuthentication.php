@@ -1,6 +1,6 @@
 <?php
 
-namespace Misakstvanu\LaravelPasskeys\Contracts;
+namespace Misakstvanu\LaravelFortifyPasskeys\Contracts;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 

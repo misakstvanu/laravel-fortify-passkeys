@@ -1,9 +1,9 @@
 <?php
 
-namespace Misakstvanu\LaravelPasskeys;
+namespace Misakstvanu\LaravelFortifyPasskeys;
 
 use App\Models\User;
-use Misakstvanu\LaravelPasskeys\Models\Passkey;
+use Misakstvanu\LaravelFortifyPasskeys\Models\Passkey;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialSourceRepository;

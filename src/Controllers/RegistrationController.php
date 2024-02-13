@@ -1,6 +1,6 @@
 <?php
 
-namespace Misakstvanu\LaravelPasskeys\Controllers;
+namespace Misakstvanu\LaravelFortifyPasskeys\Controllers;
 
 use App\Models\User;
 use Cose\Algorithms;
@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-use Misakstvanu\LaravelPasskeys\CredentialSourceRepository;
+use Misakstvanu\LaravelFortifyPasskeys\CredentialSourceRepository;
 use Psr\Http\Message\ServerRequestInterface;
 use Random\RandomException;
 use Throwable;

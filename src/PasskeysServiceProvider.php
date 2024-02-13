@@ -1,6 +1,6 @@
 <?php
 
-namespace Misakstvanu\LaravelPasskeys;
+namespace Misakstvanu\LaravelFortifyPasskeys;
 
 use Illuminate\Support\ServiceProvider;
 

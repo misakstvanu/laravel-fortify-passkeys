@@ -1,6 +1,6 @@
 <?php
 
-namespace Misakstvanu\LaravelPasskeys\Models;
+namespace Misakstvanu\LaravelFortifyPasskeys\Models;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Casts\Attribute;
