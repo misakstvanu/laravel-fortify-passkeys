@@ -23,6 +23,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Misakstvanu\LaravelFortifyPasskeys\CredentialSourceRepository;
+use Misakstvanu\LaravelFortifyPasskeys\Requests\GenerateAuthenticationOptionsRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use Random\RandomException;
 use Throwable;
@@ -43,15 +44,15 @@ use Webauthn\TokenBinding\IgnoreTokenBindingHandler;
 class AuthenticationController extends Controller {
 
     // We use this key across several methods, so we're going to define it here
-    const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
+    protected const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
 
     /**
      * @throws ValidationException
      * @throws RandomException
      */
-    public function generateOptions(Request $request): array {
+    public function generateOptions(GenerateAuthenticationOptionsRequest $request): array {
         try {
-            $user = config('passkeys.user_model')::where(config('passkeys.username_column'), $request->input(config('passkeys.username_column')))->whereHas('passkeys')->firstOrFail();
+            $user = config('passkeys.user_model')::where(config('passkeys.username_column'), $request->validated(config('passkeys.username_column')))->whereHas('passkeys')->firstOrFail();
         } catch (ModelNotFoundException $e) {
             throw new ModelNotFoundException('User not found', 404, $e);
         }
