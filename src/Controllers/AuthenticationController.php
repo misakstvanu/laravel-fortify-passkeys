@@ -3,7 +3,6 @@
 namespace Misakstvanu\LaravelFortifyPasskeys\Controllers;
 
 
-use App\Models\User;
 use Cose\Algorithm\Manager;
 use Cose\Algorithm\Signature\ECDSA\ES256;
 use Cose\Algorithm\Signature\ECDSA\ES256K;

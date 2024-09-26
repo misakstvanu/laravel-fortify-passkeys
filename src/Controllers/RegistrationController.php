@@ -2,7 +2,6 @@
 
 namespace Misakstvanu\LaravelFortifyPasskeys\Controllers;
 
-use App\Models\User;
 use Cose\Algorithms;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
