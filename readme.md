@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This project is currently under development
+> Spatie beat me to it. This repo won't be updated anymore, an ideologically very similar and already complete alternative exists -> https://github.com/spatie/laravel-passkeys 
 
 # Laravel Passkeys
 This package provides a simple way to authenticate users using passkeys. 
