@@ -9,10 +9,10 @@ class PasskeysServiceProvider extends ServiceProvider {
     public function boot(): void {
         $this->publishes([
             __DIR__ . '/../config/passkeys.php' => config_path('passkeys.php'),
-        ], 'laravel-passkeys-config');
+        ], 'laravel-fortify-passkeys-config');
         $this->publishes([
             __DIR__ . '/../database/migrations/' => database_path('migrations'),
-        ], 'laravel-passkeys-migrations');
+        ], 'laravel-fortify-passkeys-migrations');
         $this->loadRoutesFrom(__DIR__ . '/../routes/passkeys.php');
     }
 

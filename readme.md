@@ -11,7 +11,7 @@ Authentication processes are based on `web-auth/webauthn-lib` package. On fronte
 1. Install the package via composer:
 
 ``` bash
-composer require misakstvanu/laravel-passkeys
+composer require misakstvanu/laravel-fortify-passkeys
 ```
 
 2. Service provider will be auto discovered. If you want to register it manually, add the following line to
@@ -23,28 +23,28 @@ composer require misakstvanu/laravel-passkeys
      * Package Service Providers...
      */
     // ...
-    Misakstvanu\LaravelPasskeys\PasskeysServiceProvider::class,
+    Misakstvanu\LaravelFortifyPasskeys\PasskeysServiceProvider::class,
 ];
 ```
 
 3. Publish migration to create `passkeys` table:
 
 ``` bash
-php artisan vendor:publish --tag=laravel-passkeys-migrations
+php artisan vendor:publish --tag=laravel-fortify-passkeys-migrations
 php artisan migrate
 ```
 
 4. (optional) Publish the config file:
 
 ``` bash
-php artisan vendor:publish --tag=laravel-passkeys-config
+php artisan vendor:publish --tag=laravel-fortify-passkeys-config
 ```
 
 ## Configuration
 
-1. Implement an interface `Misakstvanu\LaravelPasskeys\Contracts\PasskeyAuthentication` on your `User` model:
+1. Implement an interface `Misakstvanu\LaravelFortifyPasskeys\Contracts\PasskeyAuthentication` on your `User` model:
 ``` php
-use Misakstvanu\LaravelPasskeys\Contracts\PasskeyAuthentication;
+use Misakstvanu\LaravelFortifyPasskeys\Models\Contracts\PasskeyAuthentication;
 
 class User extends Authenticatable implements PasskeyAuthentication {
     // ...
@@ -53,7 +53,7 @@ class User extends Authenticatable implements PasskeyAuthentication {
 
 2. Set up `passkeys` relation on your `User` model:
 ``` php
-use Misakstvanu\LaravelPasskeys\Models\Passkey;
+use Misakstvanu\LaravelFortifyPasskeys\Models\Passkey;
 
 public function passkeys() :HasMany {
     return $this->hasMany(Passkey::class);
