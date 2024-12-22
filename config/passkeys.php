@@ -17,6 +17,8 @@ return [
 
     'username_column' => env('PASSKEYS_USERNAME_COLUMN', 'email'),
 
+    'username_column_validation' => explode(',', env('PASSKEYS_USERNAME_COLUMN_VALIDATION', 'required,string,email,max:255')),
+
     'registration_user_validation' => explode(',', env('PASSKEYS_REGISTRATION_USER_VALIDATION', '')),
 
 ];
