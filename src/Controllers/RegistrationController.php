@@ -29,6 +29,14 @@ use Webauthn\PublicKeyCredentialUserEntity;
 
 class RegistrationController extends Controller {
 
+    protected CredentialSourceRepository $credentialSourceRepository;
+    protected PublicKeyCredentialLoader $publicKeyCredentialLoader;
+
+    public function __construct(CredentialSourceRepository $credentialSourceRepository, PublicKeyCredentialLoader $publicKeyCredentialLoader) {
+        $this->credentialSourceRepository = $credentialSourceRepository;
+        $this->publicKeyCredentialLoader = $publicKeyCredentialLoader;
+    }
+
     // We use this key across several methods, so we're going to define it here
     const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
 
@@ -118,26 +126,19 @@ class RegistrationController extends Controller {
     public function verify(Request $request, ServerRequestInterface $serverRequest): array {
         $userData = $request->validate(config('passkeys.registration_user_validation'));
 
-        // A repo of our public key credentials
-        $pkSourceRepo = new CredentialSourceRepository();
-
         $attestationManager = AttestationStatementSupportManager::create();
         $attestationManager->add(NoneAttestationStatementSupport::create());
 
         // The validator that will check the response from the device
         $responseValidator = AuthenticatorAttestationResponseValidator::create(
             $attestationManager,
-            $pkSourceRepo,
+            $this->credentialSourceRepository,
             null,
             ExtensionOutputCheckerHandler::create()
         );
 
         // A loader that will load the response from the device
-        $pkCredentialLoader = PublicKeyCredentialLoader::create(
-            AttestationObjectLoader::create($attestationManager)
-        );
-
-        $publicKeyCredential = $pkCredentialLoader->load(json_encode($request->all()));
+        $publicKeyCredential = $this->publicKeyCredentialLoader->load(json_encode($request->all()));
 
         $authenticatorAttestationResponse = $publicKeyCredential->response;
 
@@ -172,7 +173,7 @@ class RegistrationController extends Controller {
             $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
         }
 
-        $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
+        $this->credentialSourceRepository->saveCredentialSource($publicKeyCredentialSource);
 
         if(!Auth::check()) Auth::login($user);
 

@@ -60,6 +60,16 @@ public function passkeys() :HasMany {
 }
 ```
 
+Alternatively, you can use the `PasskeyAuthenticationDefaults` trait:
+``` php
+use Misakstvanu\LaravelFortifyPasskeys\Models\Concerns\PasskeyAuthenticationDefaults;
+
+class User extends Authenticatable implements PasskeyAuthentication {
+    use PasskeyAuthenticationDefaults;
+    // ...
+}
+```
+
 3. Once you have published the config file, you can configure the package by editing the `config/passkeys.php` file. The variables are:
 
 - `user_model` - the model that will be used to authenticate the user. Default: `App\Models\User`
@@ -104,6 +114,14 @@ There are 4 named routes that make everything work:
 `POST 'passkeys.register.start'` - registration route, accepts `email` or other field specified in your config. Credential request options is returned.
 
 `POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes and an user is currently logged in, the passkey will be added to the existing account, if no one is currently logged in, an account will be created from the username/email and any additional data specified in config and sent along with this request. If the passkey registration fails, an exception with additional information is thrown.
+
+### Dependency Injection
+
+The package now uses Laravel's dependency injection for better testability and maintainability. The `CredentialSourceRepository` and `PublicKeyCredentialLoader` are injected into the constructors of the `AuthenticationController` and `RegistrationController`.
+
+### Encryption
+
+The package now uses Laravel's built-in encryption for sensitive data. The `public_key` and `credential_id` attributes in the `Passkey` model are encrypted.
 
 ## JS Example
 Below is minimal example of how to use this package with js `@simplewebauthn/browser`.

@@ -3,6 +3,7 @@
 namespace Misakstvanu\LaravelFortifyPasskeys;
 
 use Illuminate\Support\ServiceProvider;
+use Webauthn\PublicKeyCredentialLoader;
 
 class PasskeysServiceProvider extends ServiceProvider {
 
@@ -18,6 +19,14 @@ class PasskeysServiceProvider extends ServiceProvider {
 
     public function register(): void {
         $this->mergeConfigFrom(__DIR__ . '/../config/passkeys.php', 'passkeys');
+
+        $this->app->singleton(CredentialSourceRepository::class, function ($app) {
+            return new CredentialSourceRepository();
+        });
+
+        $this->app->singleton(PublicKeyCredentialLoader::class, function ($app) {
+            return new PublicKeyCredentialLoader();
+        });
     }
 
 }

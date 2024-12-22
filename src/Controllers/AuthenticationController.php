@@ -43,6 +43,14 @@ use Webauthn\TokenBinding\IgnoreTokenBindingHandler;
 
 class AuthenticationController extends Controller {
 
+    protected CredentialSourceRepository $credentialSourceRepository;
+    protected PublicKeyCredentialLoader $publicKeyCredentialLoader;
+
+    public function __construct(CredentialSourceRepository $credentialSourceRepository, PublicKeyCredentialLoader $publicKeyCredentialLoader) {
+        $this->credentialSourceRepository = $credentialSourceRepository;
+        $this->publicKeyCredentialLoader = $publicKeyCredentialLoader;
+    }
+
     // We use this key across several methods, so we're going to define it here
     protected const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
 
@@ -65,11 +73,8 @@ class AuthenticationController extends Controller {
             null,
         );
 
-        // A repo of our public key credentials
-        $pkSourceRepo = new CredentialSourceRepository();
-
         // A user can have multiple authenticators, so we need to get all of them to check against
-        $registeredAuthenticators = $pkSourceRepo->findAllForUserEntity($userEntity);
+        $registeredAuthenticators = $this->credentialSourceRepository->findAllForUserEntity($userEntity);
 
         // We don’t need the Credential Sources, just the associated Descriptors
         $allowedCredentials = collect($registeredAuthenticators)
@@ -106,9 +111,6 @@ class AuthenticationController extends Controller {
      * @throws ValidationException
      */
     public function verify(Request $request, ServerRequestInterface $serverRequest): array {
-        // A repo of our public key credentials
-        $pkSourceRepo = new CredentialSourceRepository();
-
         $attestationManager = AttestationStatementSupportManager::create();
         $attestationManager->add(NoneAttestationStatementSupport::create());
 
@@ -129,23 +131,19 @@ class AuthenticationController extends Controller {
 
         // The validator that will check the response from the device
         $responseValidator = AuthenticatorAssertionResponseValidator::create(
-            $pkSourceRepo,
+            $this->credentialSourceRepository,
             null,
             ExtensionOutputCheckerHandler::create(),
             $algorithmManager,
         );
 
         // A loader that will load the response from the device
-        $pkCredentialLoader = PublicKeyCredentialLoader::create(
-            AttestationObjectLoader::create($attestationManager)
-        );
-
-        $publicKeyCredential = $pkCredentialLoader->load(json_encode($request->all()));
+        $publicKeyCredential = $this->publicKeyCredentialLoader->load(json_encode($request->all()));
 
         $authenticatorAssertionResponse = $publicKeyCredential->response;
 
         if(null === $userHandle = $authenticatorAssertionResponse?->userHandle)
-            $userHandle = $pkSourceRepo->findOneByCredentialId($publicKeyCredential->rawId)->userHandle;
+            $userHandle = $this->credentialSourceRepository->findOneByCredentialId($publicKeyCredential->rawId)->userHandle;
 
         if (!$authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
             throw ValidationException::withMessages([
