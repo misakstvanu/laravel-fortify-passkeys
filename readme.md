@@ -69,6 +69,29 @@ public function passkeys() :HasMany {
 - `relying_party_ids` - an array of domains that will be allowed insecure connection, use with caution. Default: `[]`
 - `registration_user_validation` - validation rules that will be applied to the request when registering new user. These values will then be persisted with the new user. Default: `[]`
 
+### Setting Environment Variables
+
+To make the configuration more flexible, you can set the configuration values using environment variables. Here are the environment variables you can set:
+
+- `PASSKEYS_USER_MODEL` - the model that will be used to authenticate the user. Default: `App\Models\User`
+- `PASSKEYS_ROUTE_PREFIX` - prefix for the 4 routes this package loads. Default: `passkeys`
+- `PASSKEYS_ROUTE_MIDDLEWARE` - middleware that will be applied to the routes. Default: `web`
+- `PASSKEYS_USERNAME_COLUMN` - the column that will be used to find the user. Default: `email`
+- `PASSKEYS_RELYING_PARTY_IDS` - a comma-separated list of domains that will be allowed insecure connection, use with caution. Default: ``
+- `PASSKEYS_REGISTRATION_USER_VALIDATION` - a comma-separated list of validation rules that will be applied to the request when registering new user. Default: ``
+
+### Examples
+
+Here are some examples of how to set the environment variables in your `.env` file:
+
+```env
+PASSKEYS_USER_MODEL="App\Models\User"
+PASSKEYS_ROUTE_PREFIX="passkeys"
+PASSKEYS_ROUTE_MIDDLEWARE="web,auth"
+PASSKEYS_USERNAME_COLUMN="email"
+PASSKEYS_RELYING_PARTY_IDS="example.com,another-example.com"
+PASSKEYS_REGISTRATION_USER_VALIDATION="required|string|max:255"
+```
 
 ## Usage
 

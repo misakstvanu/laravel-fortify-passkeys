@@ -2,21 +2,21 @@
 
 return [
 
-    'user_model' => App\Models\User::class,
+    'user_model' => env('PASSKEYS_USER_MODEL', App\Models\User::class),
 
-    'route_prefix' => 'passkey',
+    'route_prefix' => env('PASSKEYS_ROUTE_PREFIX', 'passkey'),
 
-    'route_middleware' => ['web'],
+    'route_middleware' => explode(',', env('PASSKEYS_ROUTE_MIDDLEWARE', 'web')),
 
     /*
      * This is just a fancy name for "domains that should not require HTTPS".
      * This is useful for local development or complex networks.
      * THIS OPTION IS DANGEROUS, USE CAREFULLY!
      */
-    'relying_party_ids' => [],
+    'relying_party_ids' => explode(',', env('PASSKEYS_RELYING_PARTY_IDS', '')),
 
-    'username_column' => 'email',
+    'username_column' => env('PASSKEYS_USERNAME_COLUMN', 'email'),
 
-    'registration_user_validation' => [],
+    'registration_user_validation' => explode(',', env('PASSKEYS_REGISTRATION_USER_VALIDATION', '')),
 
 ];
