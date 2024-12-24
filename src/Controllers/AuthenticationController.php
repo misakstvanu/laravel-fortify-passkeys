@@ -2,12 +2,15 @@
 
 namespace Misakstvanu\LaravelFortifyPasskeys\Controllers;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Misakstvanu\LaravelFortifyPasskeys\Requests\GenerateAuthenticationOptionsRequest;
 use Misakstvanu\LaravelFortifyPasskeys\Services\PasskeyService;
 use Psr\Http\Message\ServerRequestInterface;
+use Random\RandomException;
 use Throwable;
 use Webauthn\Exception\InvalidDataException;
 
@@ -22,6 +25,7 @@ class AuthenticationController extends Controller {
 
     /**
      * @throws ValidationException
+     * @throws RandomException
      * @throws RandomException
      */
     public function generateOptions(GenerateAuthenticationOptionsRequest $request): array {
@@ -39,7 +43,8 @@ class AuthenticationController extends Controller {
      * @throws Throwable
      * @throws ValidationException
      */
-    public function verify(Request $request, ServerRequestInterface $serverRequest) {
+    public function verify(Request $request, ServerRequestInterface $serverRequest): array
+    {
         $response = $this->passkeyService->verify($request, $serverRequest);
 
         if ($response['verified']) {

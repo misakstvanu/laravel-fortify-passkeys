@@ -33,7 +33,8 @@ class RegistrationController extends Controller {
      * @throws Throwable
      * @throws ValidationException
      */
-    public function verify(Request $request, ServerRequestInterface $serverRequest) {
+    public function verify(Request $request, ServerRequestInterface $serverRequest): array
+    {
         $userData = $request->validate(config('passkeys.registration_user_validation'));
 
         $response = $this->passkeyService->verify($request, $serverRequest);

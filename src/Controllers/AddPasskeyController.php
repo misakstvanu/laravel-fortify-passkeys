@@ -34,11 +34,10 @@ class AddPasskeyController extends Controller {
      * @throws Throwable
      * @throws ValidationException
      */
-    public function verify(Request $request, ServerRequestInterface $serverRequest) {
+    public function verify(Request $request, ServerRequestInterface $serverRequest): array
+    {
         $user = Auth::user();
-        $response = $this->passkeyService->verify($request, $serverRequest, $user);
-
-        return $response;
+        return $this->passkeyService->verify($request, $serverRequest, $user);
     }
 
 }
