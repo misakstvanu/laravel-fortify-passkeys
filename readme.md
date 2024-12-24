@@ -95,7 +95,7 @@ PASSKEYS_REGISTRATION_USER_VALIDATION="required|string|max:255"
 
 ## Usage
 
-There are 4 named routes that make everything work:
+There are now 6 named routes that make everything work:
 
 `POST 'passkeys.login.start'` - login route, accepts `email` or other field specified in your config. If a user with the given username/email exists and has a passkey registered, credential request options will be returned. If the user does not exist, HTTP 404 will be returned instead.
 
@@ -103,7 +103,11 @@ There are 4 named routes that make everything work:
 
 `POST 'passkeys.register.start'` - registration route, accepts `email` or other field specified in your config. Credential request options is returned.
 
-`POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes and an user is currently logged in, the passkey will be added to the existing account, if no one is currently logged in, an account will be created from the username/email and any additional data specified in config and sent along with this request. If the passkey registration fails, an exception with additional information is thrown.
+`POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes, an account will be created from the username/email and any additional data specified in config and sent along with this request. If the passkey registration fails, an exception with additional information is thrown.
+
+`POST 'passkeys.add.options'` - add passkey route, generates options to add a new passkey to a logged-in user.
+
+`POST 'passkeys.add'` - add passkey route, accepts passkey response. If the passkey registration passes, the passkey will be added to the existing account. If the passkey registration fails, an exception with additional information is thrown.
 
 ## JS Example
 Below is minimal example of how to use this package with js `@simplewebauthn/browser`.
@@ -149,6 +153,24 @@ function login() {
                 return window.location.reload();
             }
             // Something went wrong verifying the authentication.
+        })
+        .catch((error) => {
+            // Handle error information
+        });
+}
+function addPasskey() {
+    // Ask for the options to add a new passkey
+    api.post('/passkey/add/options')
+        // Prompt the user to create a passkey
+        .then((response) => startRegistration(response.data))
+        // Verify the data with the server
+        .then((attResp) => api.post('/passkey/add', attResp))
+        .then((verificationResponse) => {
+            if (verificationResponse.data?.verified) {
+                // PASSKEY WAS ADDED TO THE EXISTING ACCOUNT
+                return window.location.reload();
+            }
+            // Something went wrong verifying the registration.
         })
         .catch((error) => {
             // Handle error information
