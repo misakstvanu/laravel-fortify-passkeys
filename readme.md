@@ -177,3 +177,36 @@ function addPasskey() {
         });
 }
 ```
+
+## Refactoring
+
+The code has been refactored to reduce duplication and follow Laravel best practices. A new service class `PasskeyService` has been created to handle common logic for generating options and verifying responses. The `generateOptions` and `verify` methods in `AddPasskeyController`, `RegistrationController`, and `AuthenticationController` have been refactored to use `PasskeyService`.
+
+### PasskeyService
+
+The `PasskeyService` class is located in `src/Services/PasskeyService.php`. It contains the following methods:
+
+- `generateOptions(Request $request, $user = null): array` - Generates options for passkey creation.
+- `verify(Request $request, ServerRequestInterface $serverRequest, $user = null): array` - Verifies the passkey response.
+
+### Controllers
+
+The `generateOptions` and `verify` methods in the following controllers have been refactored to use `PasskeyService`:
+
+- `AddPasskeyController`
+- `RegistrationController`
+- `AuthenticationController`
+
+The `PasskeyService` is injected into the constructors of these controllers and used to handle the common logic for generating options and verifying responses.
+
+### Response Array
+
+The response has been updated to return an array with "verified". This change has been applied to the `verify` methods in the `AddPasskeyController`, `RegistrationController`, and `AuthenticationController`. The updated response is as follows:
+
+```php
+if ($response['verified']) {
+    return ['verified' => true];
+}
+
+return ['verified' => false];
+```
