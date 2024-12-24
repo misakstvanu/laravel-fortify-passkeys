@@ -2,7 +2,6 @@
 
 namespace Misakstvanu\LaravelFortifyPasskeys\Controllers;
 
-use App\Models\User;
 use Cose\Algorithms;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -27,9 +26,8 @@ use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 
-class RegistrationController extends Controller {
+class AddPasskeyController extends Controller {
 
-    // We use this key across several methods, so we're going to define it here
     const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
 
     /**
@@ -44,10 +42,11 @@ class RegistrationController extends Controller {
         );
 
         // User Entity
+        $user = Auth::user();
         $userEntity = PublicKeyCredentialUserEntity::create(
-            $request->input(config('passkeys.username_column')),
-            $request->input(config('passkeys.username_column')),
-            $request->input(config('passkeys.username_column')),
+            $user->email,
+            (string) $user->id,
+            $user->name,
             null,
         );
 
@@ -97,9 +96,6 @@ class RegistrationController extends Controller {
         // so we'll do it manually
         $serializedOptions['extensions'] = $serializedOptions['extensions']->jsonSerialize();
 
-        // Another thing we have to do manually for this to work the way we want to todo OR NOT??
-        // $serializedOptions['authenticatorSelection']['residentKey'] = AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_PREFERRED;
-
         // It is important to store the user entity and the options object (e.g. in the session)
         // for the next step. The data will be needed to check the response from the device.
         $request->session()->flash(
@@ -116,8 +112,6 @@ class RegistrationController extends Controller {
      * @throws ValidationException
      */
     public function verify(Request $request, ServerRequestInterface $serverRequest): array {
-        $userData = $request->validate(config('passkeys.registration_user_validation'));
-
         // A repo of our public key credentials
         $pkSourceRepo = new CredentialSourceRepository();
 
@@ -163,14 +157,11 @@ class RegistrationController extends Controller {
 
         // If we've gotten this far, the response is valid!
 
-        // Save the user and the public key credential source to the database
-        $user = config('passkeys.user_model')::create(array_merge([
-            config('passkeys.username_column') => $publicKeyCredentialSource->userHandle,
-        ], $userData));
+        // Save the public key credential source to the database
+        $user = Auth::user();
+        $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
 
         $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
-
-        Auth::login($user);
 
         return [
             'verified' => true,
