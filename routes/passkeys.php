@@ -15,7 +15,7 @@ Route::group([
     // Registration...
     if (Features::enabled(Features::registration())) {
         Route::post('passkey/register/options', [RegistrationController::class, 'generateOptions'])->name('passkeys.register.start');
-        Route::post('passkey/register', [RegistrationController::class, 'verify'])->name('passkeys.register.verify');
+        Route::post('passkey/register', [RegistrationController::class, 'registerNewUser'])->name('passkeys.register.new');
+        Route::post('passkey/register/add', [RegistrationController::class, 'verify'])->name('passkeys.register.verify');
     }
 });
-

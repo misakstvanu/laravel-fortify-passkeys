@@ -116,6 +116,68 @@ class RegistrationController extends Controller {
      * @throws ValidationException
      */
     public function verify(Request $request, ServerRequestInterface $serverRequest): array {
+        // A repo of our public key credentials
+        $pkSourceRepo = new CredentialSourceRepository();
+
+        $attestationManager = AttestationStatementSupportManager::create();
+        $attestationManager->add(NoneAttestationStatementSupport::create());
+
+        // The validator that will check the response from the device
+        $responseValidator = AuthenticatorAttestationResponseValidator::create(
+            $attestationManager,
+            $pkSourceRepo,
+            null,
+            ExtensionOutputCheckerHandler::create()
+        );
+
+        // A loader that will load the response from the device
+        $pkCredentialLoader = PublicKeyCredentialLoader::create(
+            AttestationObjectLoader::create($attestationManager)
+        );
+
+        $publicKeyCredential = $pkCredentialLoader->load(json_encode($request->all()));
+
+        $authenticatorAttestationResponse = $publicKeyCredential->response;
+
+        if (!$authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
+            throw ValidationException::withMessages([
+                config('passkeys.username_column') => 'Invalid response type',
+            ]);
+        }
+
+        // Check the response from the device, this will
+        // throw an exception if the response is invalid.
+        // For the purposes of this demo, we are letting
+        // the exception bubble up so we can see what is
+        // going on.
+        $publicKeyCredentialSource = $responseValidator->check(
+            $authenticatorAttestationResponse,
+            PublicKeyCredentialCreationOptions::createFromArray(
+                $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY)
+            ),
+            $serverRequest,
+            config('passkeys.relying_party_ids')
+        );
+
+        // If we've gotten this far, the response is valid!
+
+        // Save the public key credential source to the database
+        $user = Auth::user();
+        $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
+
+        $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
+
+        return [
+            'verified' => true,
+        ];
+    }
+
+    /**
+     * @throws InvalidDataException
+     * @throws Throwable
+     * @throws ValidationException
+     */
+    public function registerNewUser(Request $request, ServerRequestInterface $serverRequest): array {
         $userData = $request->validate(config('passkeys.registration_user_validation'));
 
         // A repo of our public key credentials
@@ -164,17 +226,13 @@ class RegistrationController extends Controller {
         // If we've gotten this far, the response is valid!
 
         // Save the user and the public key credential source to the database
-        if(null == $user = Auth::user()) {
-            $user = config('passkeys.user_model')::create(array_merge([
-                config('passkeys.username_column') => $publicKeyCredentialSource->userHandle,
-            ], $userData));
-        } else {
-            $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
-        }
+        $user = config('passkeys.user_model')::create(array_merge([
+            config('passkeys.username_column') => $publicKeyCredentialSource->userHandle,
+        ], $userData));
 
         $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
 
-        if(!Auth::check()) Auth::login($user);
+        Auth::login($user);
 
         return [
             'verified' => true,

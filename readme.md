@@ -103,7 +103,9 @@ There are 4 named routes that make everything work:
 
 `POST 'passkeys.register.start'` - registration route, accepts `email` or other field specified in your config. Credential request options is returned.
 
-`POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes and an user is currently logged in, the passkey will be added to the existing account, if no one is currently logged in, an account will be created from the username/email and any additional data specified in config and sent along with this request. If the passkey registration fails, an exception with additional information is thrown.
+`POST 'passkeys.register.new'` - registration route, accepts passkey response. If the passkey registration passes, a new user will be created and logged in. If the passkey registration fails, an exception with additional information is thrown.
+
+`POST 'passkeys.register.verify'` - registration route, accepts passkey response. If the passkey registration passes and an user is currently logged in, the passkey will be added to the existing account. If the passkey registration fails, an exception with additional information is thrown.
 
 ## JS Example
 Below is minimal example of how to use this package with js `@simplewebauthn/browser`.
