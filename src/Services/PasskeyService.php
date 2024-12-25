@@ -22,6 +22,7 @@ use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 class PasskeyService {
 
@@ -155,7 +156,7 @@ class PasskeyService {
         // going on.
         $publicKeyCredentialSource = $responseValidator->check(
             $authenticatorAttestationResponse,
-            PublicKeyCredentialCreationOptions::createFromArray(
+            PublicKeyCredentialRequestOptions::createFromArray(
                 $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY)
             ),
             $serverRequest,

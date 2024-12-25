@@ -11,6 +11,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Random\RandomException;
 use Throwable;
 use Webauthn\Exception\InvalidDataException;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 class RegistrationController extends Controller {
 

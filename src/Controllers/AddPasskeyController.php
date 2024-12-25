@@ -11,6 +11,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Random\RandomException;
 use Throwable;
 use Webauthn\Exception\InvalidDataException;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 class AddPasskeyController extends Controller {
 
@@ -37,7 +38,9 @@ class AddPasskeyController extends Controller {
     public function verify(Request $request, ServerRequestInterface $serverRequest): array
     {
         $user = Auth::user();
-        return $this->passkeyService->verify($request, $serverRequest, $user);
+        $publicKeyCredentialSource = $this->passkeyService->verify($request, $serverRequest, $user);
+
+        return $publicKeyCredentialSource;
     }
 
 }
