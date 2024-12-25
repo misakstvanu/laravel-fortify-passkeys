@@ -27,6 +27,7 @@ use Webauthn\PublicKeyCredentialRequestOptions;
 class PasskeyService {
 
     const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
+    const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
 
     /**
      * @throws RandomException
@@ -157,7 +158,7 @@ class PasskeyService {
         $publicKeyCredentialSource = $responseValidator->check(
             $authenticatorAttestationResponse,
             PublicKeyCredentialRequestOptions::createFromArray(
-                $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY)
+                $request->session()->get(self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY)
             ),
             $serverRequest,
             config('passkeys.relying_party_ids')
