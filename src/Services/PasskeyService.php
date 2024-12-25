@@ -18,8 +18,11 @@ use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
@@ -28,6 +31,7 @@ use Webauthn\PublicKeyCredentialUserEntity;
 class PasskeyService {
 
     const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
+    const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
 
     /**
      * @throws RandomException
@@ -177,6 +181,58 @@ class PasskeyService {
 
         return [
             'verified' => true,
+        ];
+    }
+
+    /**
+     * @throws InvalidDataException
+     * @throws Throwable
+     * @throws ValidationException
+     */
+    public function verifyLogin(Request $request, ServerRequestInterface $serverRequest): array {
+        // A repo of our public key credentials
+        $pkSourceRepo = new CredentialSourceRepository();
+
+        // The validator that will check the response from the device
+        $responseValidator = AuthenticatorAssertionResponseValidator::create(
+            $pkSourceRepo,
+            null,
+            ExtensionOutputCheckerHandler::create()
+        );
+
+        // A loader that will load the response from the device
+        $pkCredentialLoader = PublicKeyCredentialLoader::create();
+
+        $publicKeyCredential = $pkCredentialLoader->load(json_encode($request->all()));
+
+        $authenticatorAssertionResponse = $publicKeyCredential->response;
+
+        if (!$authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
+            throw ValidationException::withMessages([
+                config('passkeys.username_column') => 'Invalid response type',
+            ]);
+        }
+
+        // Check the response from the device, this will
+        // throw an exception if the response is invalid.
+        // For the purposes of this demo, we are letting
+        // the exception bubble up so we can see what is
+        // going on.
+        $publicKeyCredentialSource = $responseValidator->check(
+            $publicKeyCredential->rawId,
+            $authenticatorAssertionResponse,
+            PublicKeyCredentialRequestOptions::createFromArray(
+                $request->session()->get(self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY)
+            ),
+            $serverRequest,
+            config('passkeys.relying_party_ids')
+        );
+
+        // If we've gotten this far, the response is valid!
+
+        return [
+            'verified' => true,
+            'userHandle' => $publicKeyCredentialSource->userHandle,
         ];
     }
 }
