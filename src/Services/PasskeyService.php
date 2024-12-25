@@ -13,11 +13,13 @@ use Throwable;
 use Webauthn\AttestationStatement\AttestationObjectLoader;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
+use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\Exception\AuthenticationExtensionException;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
@@ -31,13 +33,13 @@ class PasskeyService {
 
     /**
      * @throws RandomException
+     * @throws AuthenticationExtensionException
      */
     public function generateOptions(Request $request, $user = null, $isRegistration = false): array {
         // Relying on Party Entity i.e. the application
         $rpEntity = PublicKeyCredentialRpEntity::create(
             config('app.name'),
             parse_url(config('app.url'), PHP_URL_HOST),
-            null,
         );
 
         // User Entity
@@ -46,14 +48,12 @@ class PasskeyService {
                 $user->email,
                 (string) $user->id,
                 $user->name,
-                null,
             );
         } else {
             $userEntity = PublicKeyCredentialUserEntity::create(
                 $request->input(config('passkeys.username_column')),
                 $request->input(config('passkeys.username_column')),
                 $request->input(config('passkeys.username_column')),
-                null,
             );
         }
 
@@ -87,7 +87,7 @@ class PasskeyService {
                 $supportedPublicKeyParams,
                 authenticatorSelection: AuthenticatorSelectionCriteria::create(),
                 attestation: PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
-                extensions: $isRegistration ? AuthenticationExtensionsClientInputs::createFromArray([
+                extensions: $isRegistration ? new AuthenticationExtensions([
                     'credProps' => true,
                 ]) : null
             );
