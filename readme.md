@@ -116,13 +116,28 @@ Below is minimal example of how to use this package with js `@simplewebauthn/bro
 import {browserSupportsWebAuthn, startAuthentication, startRegistration} from "@simplewebauthn/browser";
 //import 'api' object based on axios and configured with our app url
 
+function base64ToArrayBuffer(base64) {
+    const binaryString = atob(base64)
+    const len = binaryString.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+    }
+    return bytes.buffer
+}
 function register() {
     // Ask for the authentication options
     api.post('/passkey/register/options', {
         email: 'your@email.com',
     })
         // Prompt the user to create a passkey
-        .then((response) => startRegistration(response.data))
+        .then((response) => {
+            // Decode the challenge before passing to startRegistration
+            if (response.data.challenge) {
+                response.data.challenge = base64ToArrayBuffer(response.data.challenge)
+            }
+            startRegistration(response.data)
+        })
         // Verify the data with the server
         .then((attResp) => api.post('/passkey/register', attResp))
         .then((verificationResponse) => {
@@ -142,7 +157,13 @@ function login() {
             email: 'your@email.com',
         })
         // Prompt the user to authenticate with their passkey
-        .then((response) => startAuthentication(response.data))
+        .then((response) => {
+            // Decode the challenge before passing to startRegistration
+            if (response.data.challenge) {
+                response.data.challenge = base64ToArrayBuffer(response.data.challenge)
+            }
+            startAuthentication(response.data)
+        })
         // Verify the data with the server
         .then((attResp) =>
             api.post('/passkey/login', attResp),

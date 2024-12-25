@@ -4,6 +4,9 @@ namespace Misakstvanu\LaravelFortifyPasskeys;
 
 use App\Models\User;
 use Misakstvanu\LaravelFortifyPasskeys\Models\Passkey;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialSourceRepository;
@@ -11,9 +14,14 @@ use Webauthn\PublicKeyCredentialUserEntity;
 
 class CredentialSourceRepository implements PublicKeyCredentialSourceRepository {
 
-    /**
-     * @throws InvalidDataException
-     */
+    private function getSerializer(): Serializer
+    {
+        return new Serializer(
+            [new ObjectNormalizer()],
+            [new JsonEncoder()]
+        );
+    }
+
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource {
         $authenticator = $this->findOneEntryByCredentialId($publicKeyCredentialId);
 
@@ -21,7 +29,10 @@ class CredentialSourceRepository implements PublicKeyCredentialSourceRepository 
             return null;
         }
 
-        return PublicKeyCredentialSource::createFromArray($authenticator->public_key);
+        return $this->getSerializer()->denormalize(
+            $authenticator->public_key,
+            PublicKeyCredentialSource::class
+        );
     }
 
     protected function findOneEntryByCredentialId(string $publicKeyCredentialId): ?Passkey {
