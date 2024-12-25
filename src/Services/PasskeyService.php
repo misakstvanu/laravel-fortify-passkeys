@@ -17,9 +17,12 @@ use Webauthn\AuthenticationExtensions\AuthenticationExtensionsClientInputs;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
+use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
@@ -28,6 +31,7 @@ use Webauthn\PublicKeyCredentialUserEntity;
 class PasskeyService {
 
     const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
+    const CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY = 'publicKeyCredentialRequestOptions';
 
     /**
      * @throws RandomException
@@ -128,8 +132,14 @@ class PasskeyService {
         $attestationManager->add(NoneAttestationStatementSupport::create());
 
         // The validator that will check the response from the device
-        $responseValidator = AuthenticatorAttestationResponseValidator::create(
+        $attestationResponseValidator = AuthenticatorAttestationResponseValidator::create(
             $attestationManager,
+            $pkSourceRepo,
+            null,
+            ExtensionOutputCheckerHandler::create()
+        );
+
+        $assertionResponseValidator = AuthenticatorAssertionResponseValidator::create(
             $pkSourceRepo,
             null,
             ExtensionOutputCheckerHandler::create()
@@ -142,41 +152,58 @@ class PasskeyService {
 
         $publicKeyCredential = $pkCredentialLoader->load(json_encode($request->all()));
 
-        $authenticatorAttestationResponse = $publicKeyCredential->response;
+        $response = $publicKeyCredential->response;
 
-        if (!$authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
+        if ($response instanceof AuthenticatorAttestationResponse) {
+            // Check the response from the device, this will
+            // throw an exception if the response is invalid.
+            // For the purposes of this demo, we are letting
+            // the exception bubble up so we can see what is
+            // going on.
+            $publicKeyCredentialSource = $attestationResponseValidator->check(
+                $response,
+                PublicKeyCredentialCreationOptions::createFromArray(
+                    $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY)
+                ),
+                $serverRequest,
+                config('passkeys.relying_party_ids')
+            );
+
+            // If we've gotten this far, the response is valid!
+
+            // Save the public key credential source to the database
+            if ($user) {
+                $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
+            } else {
+                $publicKeyCredentialSource->userHandle = $request->input(config('passkeys.username_column'));
+            }
+
+            $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
+
+            return [
+                'verified' => true,
+            ];
+        } elseif ($response instanceof AuthenticatorAssertionResponse) {
+            // Check the response from the device, this will
+            // throw an exception if the response is invalid.
+            $assertionResponseValidator->check(
+                $publicKeyCredential->rawId,
+                $response,
+                PublicKeyCredentialRequestOptions::createFromArray(
+                    $request->session()->get(self::CREDENTIAL_REQUEST_OPTIONS_SESSION_KEY)
+                ),
+                $serverRequest,
+                config('passkeys.relying_party_ids')
+            );
+
+            return [
+                'verified' => true,
+                'userHandle' => $response->userHandle,
+            ];
+        } else {
             throw ValidationException::withMessages([
                 config('passkeys.username_column') => 'Invalid response type',
             ]);
         }
-
-        // Check the response from the device, this will
-        // throw an exception if the response is invalid.
-        // For the purposes of this demo, we are letting
-        // the exception bubble up so we can see what is
-        // going on.
-        $publicKeyCredentialSource = $responseValidator->check(
-            $authenticatorAttestationResponse,
-            PublicKeyCredentialCreationOptions::createFromArray(
-                $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY)
-            ),
-            $serverRequest,
-            config('passkeys.relying_party_ids')
-        );
-
-        // If we've gotten this far, the response is valid!
-
-        // Save the public key credential source to the database
-        if ($user) {
-            $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
-        } else {
-            $publicKeyCredentialSource->userHandle = $request->input(config('passkeys.username_column'));
-        }
-
-        $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
-
-        return [
-            'verified' => true,
-        ];
     }
 }
