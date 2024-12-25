@@ -37,7 +37,13 @@ class AddPasskeyController extends Controller {
     public function verify(Request $request, ServerRequestInterface $serverRequest): array
     {
         $user = Auth::user();
-        return $this->passkeyService->verify($request, $serverRequest, $user);
+        $response = $this->passkeyService->verify($request, $serverRequest, $user);
+
+        if ($response['verified']) {
+            return ['verified' => true];
+        }
+
+        return ['verified' => false];
     }
 
 }
