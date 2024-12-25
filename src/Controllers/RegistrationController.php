@@ -25,7 +25,7 @@ class RegistrationController extends Controller {
      * @throws RandomException
      */
     public function generateOptions(Request $request): array {
-        return $this->passkeyService->generateOptions($request);
+        return $this->passkeyService->generateOptions($request, null, true);
     }
 
     /**

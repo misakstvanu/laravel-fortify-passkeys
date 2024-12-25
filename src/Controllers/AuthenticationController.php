@@ -35,7 +35,7 @@ class AuthenticationController extends Controller {
             throw new ModelNotFoundException('User not found', 404, $e);
         }
 
-        return $this->passkeyService->generateOptions($request, $user);
+        return $this->passkeyService->generateOptions($request, $user, false);
     }
 
     /**

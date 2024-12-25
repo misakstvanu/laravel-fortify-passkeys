@@ -20,8 +20,6 @@ use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
-use Webauthn\PublicKeyCredentialLoader;
-use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 
@@ -32,7 +30,7 @@ class PasskeyService {
     /**
      * @throws RandomException
      */
-    public function generateOptions(Request $request, $user = null): array {
+    public function generateOptions(Request $request, $user = null, $isRegistration = false): array {
         // Relying on Party Entity i.e. the application
         $rpEntity = PublicKeyCredentialRpEntity::create(
             config('app.name'),
@@ -87,9 +85,9 @@ class PasskeyService {
                 $supportedPublicKeyParams,
                 authenticatorSelection: AuthenticatorSelectionCriteria::create(),
                 attestation: PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
-                extensions: AuthenticationExtensionsClientInputs::createFromArray([
+                extensions: $isRegistration ? AuthenticationExtensionsClientInputs::createFromArray([
                     'credProps' => true,
-                ])
+                ]) : null
             );
 
         $serializedOptions = $pkCreationOptions->jsonSerialize();
@@ -101,7 +99,9 @@ class PasskeyService {
 
         // This library for some reason doesn't serialize the extensions object,
         // so we'll do it manually
-        $serializedOptions['extensions'] = $serializedOptions['extensions']->jsonSerialize();
+        if ($isRegistration) {
+            $serializedOptions['extensions'] = $serializedOptions['extensions']->jsonSerialize();
+        }
 
         // It is important to store the user entity and the options object (e.g. in the session)
         // for the next step. The data will be needed to check the response from the device.
