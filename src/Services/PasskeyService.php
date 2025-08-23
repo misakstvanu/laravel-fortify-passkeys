@@ -4,6 +4,7 @@ namespace Misakstvanu\LaravelFortifyPasskeys\Services;
 
 use Cose\Algorithms;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Misakstvanu\LaravelFortifyPasskeys\CredentialSourceRepository;
 use Psr\Http\Message\ServerRequestInterface;
@@ -15,9 +16,12 @@ use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
+use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\CeremonyStep\CeremonyStepManager;
+use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 use Webauthn\CollectedClientData;
 use Webauthn\Exception\AuthenticationExtensionException;
 use Webauthn\Exception\InvalidDataException;
@@ -93,7 +97,8 @@ class PasskeyService
         }
 
         // Challenge (random binary string)
-        $challenge = random_bytes(16);
+        // $challenge = random_bytes(32);
+        $challenge = Str::random(32);
 
         // Instantiate PublicKeyCredentialCreationOptions object
         $pkCreationOptions =
@@ -154,25 +159,34 @@ class PasskeyService
 
         // The validator that will check the response from the device
         $responseValidator = AuthenticatorAttestationResponseValidator::create(
-            $attestationManager,
-            $pkSourceRepo,
-            null,
-            ExtensionOutputCheckerHandler::create()
+            (new CeremonyStepManagerFactory())->requestCeremony(),
+        );
+        $publicKeyCredential = $this->getSerializer()->deserialize(
+            $request->getContent(),
+            PublicKeyCredential::class,
+            'json'
         );
 
-        $publicKeyCredential = new PublicKeyCredential(
-            $request->input('id'),
-            $request->input('type'),
-            $request->input('rawId'),
-            AuthenticatorAttestationResponse::create(
-                CollectedClientData::createFormJson($request->input('response.clientDataJSON')),
-                AttestationObjectLoader::create($attestationManager)->load($request->input('response.attestationObject'))
-            )
-        );
+        $authenticatorResponse = $publicKeyCredential->response;
+        $serializedArray = $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY);
+        $credentialCreationOptions = unserialize($serializedArray);
 
-        $authenticatorAttestationResponse = $publicKeyCredential->response;
+        if ($authenticatorResponse instanceof AuthenticatorAssertionResponse) {
+            $publicKeyCredentialSource = new CredentialSourceRepository();
+            $credential = $publicKeyCredentialSource->findOneByCredentialId($publicKeyCredential->rawId);
+            if($credential === null){
+                throw ValidationException::withMessages([
+                    config('passkeys.username_column') => 'Invalid credential',
+                ]);
+            }
+            $responseValidator->check(
+                $authenticatorResponse,
+                $credentialCreationOptions,
+                'stvancloud.localhost', // host
+            );
+        } else if (!$authenticatorResponse instanceof AuthenticatorAttestationResponse) {
 
-        if (!$authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
+        } else {
             throw ValidationException::withMessages([
                 config('passkeys.username_column') => 'Invalid response type',
             ]);
@@ -187,7 +201,7 @@ class PasskeyService
         $serializedArray = $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY);
         $credentialCreationOptions = unserialize($serializedArray);
         $publicKeyCredentialSource = $responseValidator->check(
-            $authenticatorAttestationResponse,
+            $authenticatorResponse,
             $credentialCreationOptions,
             $serverRequest,
             config('passkeys.relying_party_ids')

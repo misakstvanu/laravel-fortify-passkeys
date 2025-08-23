@@ -3,9 +3,9 @@
     "description": "Passkeys backend implementation for Laravel Fortify",
     "type": "library",
     "require": {
-        "php": "^8.2||^8.3",
+        "php": "^8.2||^8.3||^8.4",
         "laravel/framework": "^10.0||^11.0",
-        "web-auth/webauthn-lib": "^4.8",
+        "web-auth/webauthn-lib": "^5.0",
         "laravel/fortify": "^1.20",
         "symfony/serializer": "^7.2",
         "symfony/property-access": "^7.2"

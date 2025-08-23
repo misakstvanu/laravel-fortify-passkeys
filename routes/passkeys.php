@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
+use Misakstvanu\LaravelFortifyPasskeys\Controllers\AttestationRequestController;
 use Misakstvanu\LaravelFortifyPasskeys\Controllers\AuthenticationController;
 use Misakstvanu\LaravelFortifyPasskeys\Controllers\RegistrationController;
 use Misakstvanu\LaravelFortifyPasskeys\Controllers\AddPasskeyController;
@@ -10,7 +11,7 @@ Route::group([
     'prefix' => config('passkeys.route_prefix'),
     'middleware' => config('passkeys.route_middleware')
 ], function () {
-    Route::post('passkey/login/options', [AuthenticationController::class, 'generateOptions'])->name('passkeys.login.start');
+    Route::post('passkey/login/options', AttestationRequestController::class)->name('passkeys.login.start');
     Route::post('passkey/login', [AuthenticationController::class, 'verify'])->name('passkeys.login.verify');
 
     // Registration...

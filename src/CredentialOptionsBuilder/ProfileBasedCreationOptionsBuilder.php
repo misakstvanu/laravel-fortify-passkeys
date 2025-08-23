@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Webauthn\Bundle\CredentialOptionsBuilder;
+
+use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Webauthn\AuthenticationExtensions\AuthenticationExtension;
+use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
+use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\Bundle\Dto\PublicKeyCredentialCreationOptionsRequest;
+use Webauthn\Bundle\Repository\PublicKeyCredentialSourceRepositoryInterface;
+use Webauthn\Bundle\Service\PublicKeyCredentialCreationOptionsFactory;
+use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialDescriptor;
+use Webauthn\PublicKeyCredentialSource;
+use Webauthn\PublicKeyCredentialUserEntity;
+use function count;
+use function is_array;
+
+final readonly class ProfileBasedCreationOptionsBuilder implements PublicKeyCredentialCreationOptionsBuilder
+{
+    public function __construct(
+        private SerializerInterface $serializer,
+        private ValidatorInterface $validator,
+        private PublicKeyCredentialSourceRepositoryInterface $credentialSourceRepository,
+        private PublicKeyCredentialCreationOptionsFactory $publicKeyCredentialCreationOptionsFactory,
+        private string $profile,
+    ) {
+    }
+
+    public function getFromRequest(
+        Request $request,
+        PublicKeyCredentialUserEntity $userEntity,
+        bool $hideExistingExcludedCredentials = false
+    ): PublicKeyCredentialCreationOptions {
+        $format = $request->getContentTypeFormat();
+        $format === 'json' || throw new BadRequestHttpException('Only JSON content type allowed');
+        $content = $request->getContent();
+
+        $excludedCredentials = $hideExistingExcludedCredentials === true ? [] : $this->getCredentials($userEntity);
+        $optionsRequest = $this->getServerPublicKeyCredentialCreationOptionsRequest($content);
+
+        $residentKey = $optionsRequest->residentKey ?? null;
+        $authenticatorSelection = AuthenticatorSelectionCriteria::create(
+            $optionsRequest->authenticatorAttachment,
+            $optionsRequest->userVerification ?? AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_PREFERRED,
+            $residentKey,
+        );
+        $extensions = null;
+        if (is_array($optionsRequest->extensions)) {
+            $extensions = AuthenticationExtensions::create(array_map(
+                static fn (string $name, mixed $data): AuthenticationExtension => AuthenticationExtension::create(
+                    $name,
+                    $data
+                ),
+                array_keys($optionsRequest->extensions),
+                $optionsRequest->extensions
+            ));
+        }
+
+        return $this->publicKeyCredentialCreationOptionsFactory->create(
+            $this->profile,
+            $userEntity,
+            $excludedCredentials,
+            $authenticatorSelection,
+            $optionsRequest->attestation,
+            $extensions
+        );
+    }
+
+    /**
+     * @return PublicKeyCredentialDescriptor[]
+     */
+    private function getCredentials(PublicKeyCredentialUserEntity $userEntity): array
+    {
+        $credentialSources = $this->credentialSourceRepository->findAllForUserEntity($userEntity);
+
+        return array_map(
+            static fn (PublicKeyCredentialSource $credential): PublicKeyCredentialDescriptor => $credential->getPublicKeyCredentialDescriptor(),
+            $credentialSources
+        );
+    }
+
+    private function getServerPublicKeyCredentialCreationOptionsRequest(
+        string $content
+    ): PublicKeyCredentialCreationOptionsRequest {
+        $data = $this->serializer->deserialize(
+            $content,
+            PublicKeyCredentialCreationOptionsRequest::class,
+            JsonEncoder::FORMAT
+        );
+        $errors = $this->validator->validate($data);
+        if (count($errors) > 0) {
+            $messages = [];
+            foreach ($errors as $error) {
+                $messages[] = $error->getPropertyPath() . ': ' . $error->getMessage();
+            }
+            throw new InvalidArgumentException(implode("\n", $messages));
+        }
+
+        return $data;
+    }
+}

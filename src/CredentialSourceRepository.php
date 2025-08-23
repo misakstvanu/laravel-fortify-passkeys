@@ -9,10 +9,9 @@ use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
 
-class CredentialSourceRepository implements PublicKeyCredentialSourceRepository {
+class CredentialSourceRepository {
 
     private function getSerializer(): Serializer
     {
