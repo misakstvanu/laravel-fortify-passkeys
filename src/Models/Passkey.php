@@ -23,11 +23,4 @@ class Passkey extends Model {
     public function user(): BelongsTo {
         return $this->belongsTo(User::class);
     }
-
-    public function credentialId(): Attribute {
-        return new Attribute(
-            get: fn ($value) => base64_decode($value),
-            set: fn ($value) => base64_encode($value),
-        );
-    }
 }

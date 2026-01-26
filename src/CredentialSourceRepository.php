@@ -4,24 +4,20 @@ namespace Misakstvanu\LaravelFortifyPasskeys;
 
 use App\Models\User;
 use Misakstvanu\LaravelFortifyPasskeys\Models\Passkey;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Misakstvanu\LaravelFortifyPasskeys\Services\HasWebauthnSerializer;
+use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
+use Symfony\Component\Serializer\SerializerInterface;
 use Webauthn\Exception\InvalidDataException;
-use Webauthn\PublicKeyCredentialSource;
+use Webauthn\CredentialRecord;
 use Webauthn\PublicKeyCredentialUserEntity;
 
 class CredentialSourceRepository {
 
-    private function getSerializer(): Serializer
-    {
-        return new Serializer(
-            [new ObjectNormalizer()],
-            [new JsonEncoder()]
-        );
-    }
+    use HasWebauthnSerializer;
 
-    public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource {
+    public function findOneByCredentialId(string $publicKeyCredentialId): ?CredentialRecord {
         $authenticator = $this->findOneEntryByCredentialId($publicKeyCredentialId);
 
         if (!$authenticator) {
@@ -30,7 +26,7 @@ class CredentialSourceRepository {
 
         return $this->getSerializer()->denormalize(
             $authenticator->public_key,
-            PublicKeyCredentialSource::class
+            CredentialRecord::class
         );
     }
 
@@ -52,21 +48,32 @@ class CredentialSourceRepository {
     /**
      * @throws InvalidDataException
      */
-    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void {
+    public function saveCredentialSource(CredentialRecord $publicKeyCredentialSource): void {
         $user = config('passkeys.user_model')::where(
             config('passkeys.username_column'),
             $publicKeyCredentialSource->userHandle
-        )->firstOrFail();
+        )->first();
+
+        if (!$user) {
+            // fallback to ID
+            $user = config('passkeys.user_model')::findOrFail($publicKeyCredentialSource->userHandle);
+        }
+
+        $serializer = $this->getSerializer();
+        // We need to use normalize here as SerializerInterface doesn't have it,
+        // but the implementation usually does.
+        /** @var \Symfony\Component\Serializer\Normalizer\NormalizerInterface $serializer */
+        $publicKeyData = $serializer->normalize($publicKeyCredentialSource);
 
         if($passkey = $this->findOneEntryByCredentialId($publicKeyCredentialSource->publicKeyCredentialId)){
             $passkey->update([
-                'public_key' => $publicKeyCredentialSource->jsonSerialize(),
+                'public_key' => $publicKeyData,
             ]);
             return;
         }
         $user->passkeys()->save(new Passkey([
-            'credential_id' => $publicKeyCredentialSource->publicKeyCredentialId,
-            'public_key' => $publicKeyCredentialSource->jsonSerialize(),
+            'credential_id' => base64_encode($publicKeyCredentialSource->publicKeyCredentialId),
+            'public_key' => $publicKeyData,
         ]));
     }
 

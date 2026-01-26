@@ -7,46 +7,39 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Misakstvanu\LaravelFortifyPasskeys\CredentialSourceRepository;
+use Misakstvanu\LaravelFortifyPasskeys\Services\HasWebauthnSerializer;
 use Psr\Http\Message\ServerRequestInterface;
 use Random\RandomException;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Throwable;
-use Webauthn\AttestationStatement\AttestationObjectLoader;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\AuthenticationExtensions;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
 use Webauthn\CeremonyStep\CeremonyStepManager;
 use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 use Webauthn\CollectedClientData;
+use Webauthn\Denormalizer\WebauthnSerializerFactory;
 use Webauthn\Exception\AuthenticationExtensionException;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
-use Symfony\Component\Serializer\Serializer;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\Serializer\SerializerInterface;
 
 
 class PasskeyService
 {
+    use HasWebauthnSerializer;
 
-    const CREDENTIAL_CREATION_OPTIONS_SESSION_KEY = 'publicKeyCredentialCreationOptions';
-
-    private function getSerializer(): Serializer
-    {
-        return new Serializer(
-            [new ObjectNormalizer()],
-            [new JsonEncoder()]
-        );
-    }
+    const CREDENTIAL_OPTIONS_SESSION_KEY = 'publicKeyCredentialOptions';
 
     protected function supportedPublicKeyAlgorithms(): array
     {
@@ -61,6 +54,7 @@ class PasskeyService
             Algorithms::COSE_ALGORITHM_PS256,
             Algorithms::COSE_ALGORITHM_PS384,
             Algorithms::COSE_ALGORITHM_PS512,
+            Algorithms::COSE_ALGORITHM_EDDSA,
             Algorithms::COSE_ALGORITHM_ED256,
             Algorithms::COSE_ALGORITHM_ED512,
         ])->map(
@@ -81,67 +75,56 @@ class PasskeyService
             parse_url(config('app.url'), PHP_URL_HOST),
         );
 
-        // User Entity
-        if ($user) {
-            $userEntity = PublicKeyCredentialUserEntity::create(
-                $user->email,
-                (string)$user->id,
-                $user->name,
-            );
-        } else {
-            $userEntity = PublicKeyCredentialUserEntity::create(
-                $request->input(config('passkeys.username_column')),
-                $request->input(config('passkeys.username_column')),
-                $request->input(config('passkeys.username_column')),
-            );
-        }
-
         // Challenge (random binary string)
-        // $challenge = random_bytes(32);
-        $challenge = Str::random(32);
+        $challenge = random_bytes(32);
 
-        // Instantiate PublicKeyCredentialCreationOptions object
-        $pkCreationOptions =
-            PublicKeyCredentialCreationOptions::create(
+        if ($isRegistration) {
+            // User Entity
+            if ($user) {
+                $userEntity = PublicKeyCredentialUserEntity::create(
+                    $user->email,
+                    (string)$user->id,
+                    $user->name,
+                );
+            } else {
+                $username = $request->input(config('passkeys.username_column'));
+                $userEntity = PublicKeyCredentialUserEntity::create(
+                    $username,
+                    $username, // Use username as ID if user doesn't exist yet (for registration)
+                    $username,
+                );
+            }
+
+            $options = PublicKeyCredentialCreationOptions::create(
                 $rpEntity,
                 $userEntity,
                 $challenge,
                 $this->supportedPublicKeyAlgorithms(),
                 authenticatorSelection: AuthenticatorSelectionCriteria::create(),
                 attestation: PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
-                extensions: $isRegistration ? new AuthenticationExtensions([
+                extensions: new AuthenticationExtensions([
                     'credProps' => true,
-                ]) : null,
+                ]),
             );
+        } else {
+            $options = PublicKeyCredentialRequestOptions::create(
+                $challenge,
+                rpId: $rpEntity->id,
+                userVerification: PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED,
+            );
+        }
 
         // Instantiate your Symfony serializer
         $serializer = $this->getSerializer();
 
-        // Convert the $pkCreationOptions object into an array
-        $serializedOptions = $serializer->normalize($pkCreationOptions);
-
-        // If you need the final structure to be JSON, you can do:
-        // $json = $serializer->serialize($pkCreationOptions, 'json');
-        // but typically for session storage, an array is just fine.
-        $serializedOptions['challenge'] = base64_encode($serializedOptions['challenge']);
-        if (!isset($serializedOptions['excludeCredentials'])) {
-            // The JS side needs this, so let's set it up for success with an empty array
-            $serializedOptions['excludeCredentials'] = [];
-        }
-
-        // If registration, and you need to ensure 'extensions' is present:
-        if ($isRegistration && !isset($serializedOptions['extensions'])) {
-            // The library might omit it, so ensure it's an empty array or something you need:
-            $serializedOptions['extensions'] = ['credProps' => true];
-        }
-
-        // Now just flash the array into the session
-        $request->session()->flash(
-            self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY,
-            serialize($pkCreationOptions)
+        // Now just flash the object into the session
+        // Laravel will handle serialization of the object.
+        $request->session()->put(
+            self::CREDENTIAL_OPTIONS_SESSION_KEY,
+            $options
         );
 
-        return $serializedOptions;  // This is already an array, suitable for your frontend
+        return $serializer->normalize($options);
     }
 
     /**
@@ -151,16 +134,16 @@ class PasskeyService
      */
     public function verify(Request $request, ServerRequestInterface $serverRequest, $user = null): array
     {
-        // A repo of our public key credentials
+        $options = $request->session()->get(self::CREDENTIAL_OPTIONS_SESSION_KEY);
+
+        if (!$options) {
+            throw ValidationException::withMessages([
+                config('passkeys.username_column') => 'Session expired',
+            ]);
+        }
+
         $pkSourceRepo = new CredentialSourceRepository();
 
-        $attestationManager = AttestationStatementSupportManager::create();
-        $attestationManager->add(NoneAttestationStatementSupport::create());
-
-        // The validator that will check the response from the device
-        $responseValidator = AuthenticatorAttestationResponseValidator::create(
-            (new CeremonyStepManagerFactory())->requestCeremony(),
-        );
         $publicKeyCredential = $this->getSerializer()->deserialize(
             $request->getContent(),
             PublicKeyCredential::class,
@@ -168,59 +151,73 @@ class PasskeyService
         );
 
         $authenticatorResponse = $publicKeyCredential->response;
-        $serializedArray = $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY);
-        $credentialCreationOptions = unserialize($serializedArray);
 
         if ($authenticatorResponse instanceof AuthenticatorAssertionResponse) {
-            $publicKeyCredentialSource = new CredentialSourceRepository();
-            $credential = $publicKeyCredentialSource->findOneByCredentialId($publicKeyCredential->rawId);
-            if($credential === null){
+            $factory = new CeremonyStepManagerFactory();
+            $factory->setAlgorithmManager($this->getAlgorithmManager());
+            $factory->setAllowedOrigins(config('passkeys.relying_party_ids'));
+
+            $validator = AuthenticatorAssertionResponseValidator::create(
+                $factory->requestCeremony(),
+            );
+
+            $credential = $pkSourceRepo->findOneByCredentialId($publicKeyCredential->rawId);
+            if ($credential === null) {
                 throw ValidationException::withMessages([
                     config('passkeys.username_column') => 'Invalid credential',
                 ]);
             }
-            $responseValidator->check(
-                $authenticatorResponse,
-                $credentialCreationOptions,
-                'stvancloud.localhost', // host
-            );
-        } else if (!$authenticatorResponse instanceof AuthenticatorAttestationResponse) {
 
+            $publicKeyCredentialSource = $validator->check(
+                $credential,
+                $authenticatorResponse,
+                $options,
+                $request->getHost(),
+                $authenticatorResponse->userHandle
+            );
+        } elseif ($authenticatorResponse instanceof AuthenticatorAttestationResponse) {
+            $factory = new CeremonyStepManagerFactory();
+            $factory->setAlgorithmManager($this->getAlgorithmManager());
+            $factory->setAttestationStatementSupportManager($this->getAttestationStatementSupportManager());
+            $factory->setAllowedOrigins(config('passkeys.relying_party_ids'));
+
+            $validator = AuthenticatorAttestationResponseValidator::create(
+                $factory->creationCeremony(),
+            );
+
+            $publicKeyCredentialSource = $validator->check(
+                $authenticatorResponse,
+                $options,
+                $request->getHost()
+            );
         } else {
             throw ValidationException::withMessages([
                 config('passkeys.username_column') => 'Invalid response type',
             ]);
         }
 
-
-        // Check the response from the device, this will
-        // throw an exception if the response is invalid.
-        // For the purposes of this demo, we are letting
-        // the exception bubble up so we can see what is
-        // going on.
-        $serializedArray = $request->session()->get(self::CREDENTIAL_CREATION_OPTIONS_SESSION_KEY);
-        $credentialCreationOptions = unserialize($serializedArray);
-        $publicKeyCredentialSource = $responseValidator->check(
-            $authenticatorResponse,
-            $credentialCreationOptions,
-            $serverRequest,
-            config('passkeys.relying_party_ids')
-        );
-
         // If we've gotten this far, the response is valid!
 
         // Save the public key credential source to the database
         if ($user) {
-            $publicKeyCredentialSource->userHandle = $user->{config('passkeys.username_column')};
+            $publicKeyCredentialSource->userHandle = (string)$user->id;
         } else {
-            $publicKeyCredentialSource->userHandle = $request->input(config('passkeys.username_column'));
+            // For login, we might need to find the user from the credential source
+            $user = config('passkeys.user_model')::where('id', $publicKeyCredentialSource->userHandle)->first();
+            if (!$user) {
+                // fallback to username column if handle is not ID
+                $user = config('passkeys.user_model')::where(config('passkeys.username_column'), $publicKeyCredentialSource->userHandle)->first();
+            }
         }
 
-        $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
+        if ($user) {
+            $publicKeyCredentialSource->userHandle = (string)$user->id;
+            $pkSourceRepo->saveCredentialSource($publicKeyCredentialSource);
+        }
 
         return [
             'verified' => true,
+            'user' => $user,
         ];
     }
-
 }
