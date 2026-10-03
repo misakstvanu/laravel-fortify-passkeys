@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This project is currently under development
+> Consider using the official laravel/passkeys
 
 # Laravel Passkeys
 This package provides a simple way to authenticate users using passkeys. 
